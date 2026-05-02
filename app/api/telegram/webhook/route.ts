@@ -1,7 +1,11 @@
+import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendMessage, extractUrls, isAuthorizedUser } from '@/lib/telegram'
 import { fetchAndParse } from '@/lib/parser'
+
+// Give background work (fetch + parse) up to 60s after the response is sent
+export const maxDuration = 60
 
 // Verify the request comes from Telegram
 function verifySecret(req: NextRequest): boolean {
@@ -45,46 +49,58 @@ export async function POST(req: NextRequest) {
   }
 
   const db = createServerClient()
-  const results: string[] = []
+
+  // Save stubs immediately and collect article IDs for background processing
+  const toFetch: { id: string; url: string }[] = []
+  const quickReplies: string[] = []
 
   for (const url of urls) {
-    try {
-      // Check for duplicate
-      const { data: existing } = await db
-        .from('articles')
-        .select('id, title')
-        .eq('url', url)
-        .maybeSingle()
+    const { data: existing } = await db
+      .from('articles')
+      .select('id, title')
+      .eq('url', url)
+      .maybeSingle()
 
-      if (existing) {
-        results.push(`⚠️ Already saved: <i>${existing.title || url}</i>`)
-        continue
-      }
+    if (existing) {
+      quickReplies.push(`⚠️ Already saved: <i>${existing.title || url}</i>`)
+      continue
+    }
 
-      // Save stub immediately
-      const { data: article, error } = await db
-        .from('articles')
-        .insert({
-          url,
-          status: 'unread',
-          telegram_message_id: messageId,
-          tags: [],
-          is_favorite: false,
-          fetch_error: null,
-          fetched_at: null,
-        })
-        .select('id')
-        .single()
+    const { data: article, error } = await db
+      .from('articles')
+      .insert({
+        url,
+        status: 'unread',
+        telegram_message_id: messageId,
+        tags: [],
+        is_favorite: false,
+        fetch_error: null,
+        fetched_at: null,
+      })
+      .select('id')
+      .single()
 
-      if (error || !article) {
-        results.push(`❌ Failed to save: ${url}`)
-        continue
-      }
+    if (error || !article) {
+      quickReplies.push(`❌ Failed to save: ${url}`)
+      continue
+    }
 
-      // Eagerly fetch and parse content (on Vercel this runs within the request)
+    toFetch.push({ id: article.id, url })
+    quickReplies.push(`⏳ Saving: ${url}`)
+  }
+
+  // Acknowledge Telegram immediately — must respond before timeout
+  await sendMessage(chatId, quickReplies.join('\n'))
+
+  // Fetch and parse content after the response is sent
+  after(async () => {
+    const db2 = createServerClient()
+    const updates: string[] = []
+
+    for (const { id, url } of toFetch) {
       try {
         const parsed = await fetchAndParse(url)
-        await db
+        await db2
           .from('articles')
           .update({
             title: parsed.title,
@@ -98,23 +114,20 @@ export async function POST(req: NextRequest) {
             fetched_at: new Date().toISOString(),
             fetch_error: null,
           })
-          .eq('id', article.id)
+          .eq('id', id)
 
-        results.push(`✅ Saved: <b>${parsed.title}</b>`)
-      } catch (parseErr) {
-        const errMsg = parseErr instanceof Error ? parseErr.message : 'Parse failed'
-        await db
-          .from('articles')
-          .update({ fetch_error: errMsg })
-          .eq('id', article.id)
-
-        results.push(`✅ Saved (fetch later): ${url}`)
+        updates.push(`✅ Ready: <b>${parsed.title}</b>`)
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Parse failed'
+        await db2.from('articles').update({ fetch_error: errMsg }).eq('id', id)
+        updates.push(`⚠️ Saved but couldn't fetch content: ${url}`)
       }
-    } catch {
-      results.push(`❌ Error saving: ${url}`)
     }
-  }
 
-  await sendMessage(chatId, results.join('\n'))
+    if (updates.length > 0) {
+      await sendMessage(chatId, updates.join('\n'))
+    }
+  })
+
   return NextResponse.json({ ok: true })
 }

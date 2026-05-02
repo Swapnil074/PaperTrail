@@ -14,7 +14,7 @@
     "canvas": "^3.2.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "jsdom": "^28.1.0",
+    "jsdom": "^25.0.1",
     "lucide-react": "^1.14.0",
     "mermaid": "^11.14.0",
     "next": "16.2.4",
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/jsdom": "^28.0.1",
+    "@types/jsdom": "^21.1.6",
     "@types/mozilla__readability": "^0.4.2",
     "@types/node": "^20",
     "@types/react": "^19",
