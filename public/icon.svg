@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <!-- Background -->
+  <rect width="192" height="192" rx="40" fill="#18181b"/>
+  <!-- Book pages (open book silhouette) -->
+  <path d="M48 56 C48 52 51 49 55 49 L93 49 L93 143 C93 143 72 137 55 137 C51 137 48 134 48 130 Z" fill="#ffffff" opacity="0.15"/>
+  <path d="M144 56 C144 52 141 49 137 49 L99 49 L99 143 C99 143 120 137 137 137 C141 137 144 134 144 130 Z" fill="#ffffff" opacity="0.15"/>
+  <!-- Spine -->
+  <rect x="91" y="49" width="10" height="94" rx="2" fill="#ffffff" opacity="0.3"/>
+  <!-- Left page lines -->
+  <line x1="60" y1="70" x2="86" y2="70" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="60" y1="82" x2="86" y2="82" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="60" y1="94" x2="86" y2="94" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="60" y1="106" x2="78" y2="106" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <!-- Right page lines -->
+  <line x1="106" y1="70" x2="132" y2="70" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="106" y1="82" x2="132" y2="82" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="106" y1="94" x2="132" y2="94" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="106" y1="106" x2="120" y2="106" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <!-- Highlight accent (yellow streak) -->
+  <rect x="60" y="78" width="26" height="8" rx="2" fill="#fef08a" opacity="0.6"/>
+</svg>
