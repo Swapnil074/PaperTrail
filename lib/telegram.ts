@@ -28,7 +28,7 @@ export function extractUrls(text: string): string[] {
 }
 
 export function isAuthorizedUser(userId: number): boolean {
-  const allowedId = process.env.TELEGRAM_ALLOWED_USER_ID
+  const allowedId = process.env.TELEGRAM_ALLOWED_USER_ID?.trim()
   if (!allowedId) return true // open if not configured
   return userId === parseInt(allowedId, 10)
 }

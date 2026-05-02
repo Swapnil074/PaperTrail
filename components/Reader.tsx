@@ -197,68 +197,63 @@ export function Reader({
     for (const h of sorted) applyHighlightToDOM(container, h)
   }, [highlights, content])
 
-  // ── Document mouseup → show selection toolbar ──────────────────
+  // ── Selection toolbar — works on both mouse and touch ─────────
   useEffect(() => {
-    function onMouseUp(e: MouseEvent) {
-      // Clicks inside any popup are handled by that popup
-      if ((e.target as HTMLElement).closest('[data-popup]')) return
-      // Don't open selection bar while a comment popover is open
-      if (commentPopoverRef.current) return
+    let touchDebounce: ReturnType<typeof setTimeout> | null = null
 
+    function processSelection() {
+      if (commentPopoverRef.current) return
       const container = containerRef.current
       const sel = window.getSelection()
-
-      if (!sel || sel.isCollapsed || !container) {
-        setSelectionBar(null)
-        return
-      }
-
+      if (!sel || sel.isCollapsed || !container) { setSelectionBar(null); return }
       const range = sel.getRangeAt(0)
-      if (!container.contains(range.commonAncestorContainer)) {
-        setSelectionBar(null)
-        return
-      }
-
+      if (!container.contains(range.commonAncestorContainer)) { setSelectionBar(null); return }
       const text = sel.toString().trim()
-      if (!text || text.length < 2) {
-        setSelectionBar(null)
-        return
-      }
-
-      // Don't offer highlight inside an existing mark
+      if (!text || text.length < 2) { setSelectionBar(null); return }
       const anc = range.commonAncestorContainer as HTMLElement
-      if (anc.closest?.('mark[data-highlight-id]')) {
-        setSelectionBar(null)
-        return
-      }
-
+      if (anc.closest?.('mark[data-highlight-id]')) { setSelectionBar(null); return }
       const start = getTextOffset(container, range.startContainer, range.startOffset)
       const end   = getTextOffset(container, range.endContainer,   range.endOffset)
       if (start >= end) { setSelectionBar(null); return }
-
       const rect = range.getBoundingClientRect()
-      // Position above selection; fall back to below if too close to top
-      const toolbarH = 40
-      const gap = 6
+      const toolbarH = 40, gap = 6
       const yAbove = rect.top - toolbarH - gap
       const y = yAbove >= 8 ? yAbove : rect.bottom + gap
-
       setSelectionBar({ text, start, end, x: rect.left + rect.width / 2, y })
     }
 
-    document.addEventListener('mouseup', onMouseUp)
-    return () => document.removeEventListener('mouseup', onMouseUp)
-  }, []) // uses refs — no deps needed
+    // Mouse: respond immediately on release
+    function onMouseUp(e: MouseEvent) {
+      if ((e.target as HTMLElement).closest('[data-popup]')) return
+      processSelection()
+    }
 
-  // ── Mousedown outside popups → dismiss everything ──────────────
+    // Touch: selectionchange fires while handles are being dragged — debounce
+    // so we only show the toolbar once the selection has stabilised
+    function onSelectionChange() {
+      if (touchDebounce) clearTimeout(touchDebounce)
+      touchDebounce = setTimeout(processSelection, 350)
+    }
+
+    document.addEventListener('mouseup', onMouseUp)
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => {
+      document.removeEventListener('mouseup', onMouseUp)
+      document.removeEventListener('selectionchange', onSelectionChange)
+      if (touchDebounce) clearTimeout(touchDebounce)
+    }
+  }, [])
+
+  // ── Pointerdown outside popups → dismiss everything ────────────
+  // pointerdown covers both mouse clicks and touch taps
   useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
+    function onPointerDown(e: PointerEvent) {
       if ((e.target as HTMLElement).closest('[data-popup]')) return
       setCommentPopover(null)
       setSelectionBar(null)
     }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [])
 
   // ── Confirm highlight from toolbar ─────────────────────────────
@@ -365,7 +360,7 @@ function SelectionToolbar({
       style={{ left: pos.x, top: pos.y }}
     >
       <button
-        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => e.preventDefault()}
         onClick={onHighlight}
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 transition-colors"
       >
@@ -374,7 +369,7 @@ function SelectionToolbar({
       </button>
       <div className="mx-0.5 h-4 w-px bg-zinc-700" />
       <button
-        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => e.preventDefault()}
         onClick={onDismiss}
         className="flex items-center justify-center h-7 w-7 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
         title="Dismiss"

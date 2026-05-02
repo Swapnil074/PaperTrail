@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { mutate } from 'swr'
 import { Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -17,6 +18,11 @@ export function AISummaryPanel({ articleId, existing }: AISummaryPanelProps) {
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState(true)
 
+  // Sync when the parent's SWR data loads (existing starts null, then resolves)
+  useEffect(() => {
+    if (existing) setSummary(existing)
+  }, [existing])
+
   async function generate() {
     setLoading(true)
     setError('')
@@ -28,6 +34,11 @@ export function AISummaryPanel({ articleId, existing }: AISummaryPanelProps) {
       }
       const { summary: data } = await res.json()
       setSummary(data)
+      // Update the article SWR cache so the summary survives navigation
+      mutate(`/api/articles/${articleId}`, (current: any) =>
+        current ? { ...current, ai_summary: data } : current,
+        { revalidate: false }
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI request failed')
     } finally {
